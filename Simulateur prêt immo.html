@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulateur de Prêt Immobilier</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #results p {
+            margin: 5px 0;
+        }
+        #warning {
+            color: #d9534f;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simulateur de Prêt Immobilier</h1>
+    <div class="form-group">
+        <label for="montant">Montant de l'emprunt (€):</label>
+        <input type="number" id="montant" value="200000" step="1000" min="0">
+    </div>
+    <div class="form-group">
+        <label for="taux">Taux annuel (%):</label>
+        <input type="number" id="taux" value="2.5" step="0.1" min="0">
+    </div>
+    <div class="form-group">
+        <label for="apport">Apport personnel (€):</label>
+        <input type="number" id="apport" value="20000" step="1000" min="0">
+    </div>
+    <div class="form-group">
+        <label for="dureeAnnees">Durée souhaitée (années) :</label>
+        <input type="number" id="dureeAnnees" placeholder="Ex. 20" step="1" min="1">
+    </div>
+    <div class="form-group">
+        <label for="mensualite">Mensualité souhaitée (€) :</label>
+        <input type="number" id="mensualite" placeholder="Ex. 1000" step="10" min="0">
+    </div>
+    <div id="results">
+        <p><strong>Mensualité estimée :</strong> <span id="mensualiteResult">-</span> €</p>
+        <p><strong>Durée estimée :</strong> <span id="duree">-</span> mois (<span id="dureeAnneesResult">-</span> ans)</p>
+        <p><strong>Coût total des intérêts :</strong> <span id="interets">-</span> €</p>
+        <p><strong>Montant total remboursé :</strong> <span id="total">-</span> €</p>
+        <p id="warning"></p>
+    </div>
+
+    <script>
+        // Fonction pour calculer le prêt
+        function calculerPret() {
+            // Récupérer les valeurs des champs
+            const montant = parseFloat(document.getElementById('montant').value) || 0;
+            const tauxAnnuel = parseFloat(document.getElementById('taux').value) || 0;
+            const apport = parseFloat(document.getElementById('apport').value) || 0;
+            const dureeAnnees = parseFloat(document.getElementById('dureeAnnees').value) || 0;
+            const mensualiteSaisie = parseFloat(document.getElementById('mensualite').value) || 0;
+
+            // Calculer le taux mensuel
+            const tauxMensuel = tauxAnnuel / 12 / 100;
+            let mensualite = 0;
+            let dureeMois = 0;
+            let dureeAnneesResult = 0;
+            let interets = 0;
+            let totalRembourse = 0;
+            let warning = '';
+
+            if (tauxMensuel <= 0 || montant <= 0) {
+                // Si pas de taux ou montant, pas de calcul
+                resetResults();
+                return;
+            }
+
+            if (dureeAnnees > 0 && mensualiteSaisie === 0) {
+                // Mode 1 : Durée saisie -> Calculer la mensualité
+                dureeMois = dureeAnnees * 12;
+                mensualite = (montant * tauxMensuel * Math.pow(1 + tauxMensuel, dureeMois)) / (Math.pow(1 + tauxMensuel, dureeMois) - 1);
+                dureeAnneesResult = dureeAnnees;
+            } else if (mensualiteSaisie > 0 && dureeAnnees === 0) {
+                // Mode 2 : Mensualité saisie -> Calculer la durée
+                mensualite = mensualiteSaisie;
+                dureeMois = Math.log(mensualite / (mensualite - montant * tauxMensuel)) / Math.log(1 + tauxMensuel);
+                dureeMois = Math.ceil(dureeMois); // Arrondir au mois supérieur
+                dureeAnneesResult = dureeMois / 12;
+            } else if (dureeAnnees > 0 && mensualiteSaisie > 0) {
+                // Les deux sont remplis : Prioriser la durée et avertir
+                dureeMois = dureeAnnees * 12;
+                mensualite = (montant * tauxMensuel * Math.pow(1 + tauxMensuel, dureeMois)) / (Math.pow(1 + tauxMensuel, dureeMois) - 1);
+                dureeAnneesResult = dureeAnnees;
+                warning = 'Mensualité ignorée : la durée a été priorisée.';
+            } else {
+                // Aucun des deux remplis
+                resetResults();
+                return;
+            }
+
+            // Calculer les intérêts et le total
+            totalRembourse = mensualite * dureeMois;
+            interets = totalRembourse - montant;
+
+            // Afficher les résultats
+            document.getElementById('mensualiteResult').textContent = mensualite > 0 ? mensualite.toFixed(2) : '-';
+            document.getElementById('duree').textContent = dureeMois > 0 ? dureeMois : '-';
+            document.getElementById('dureeAnneesResult').textContent = dureeAnneesResult > 0 ? dureeAnneesResult.toFixed(1) : '-';
+            document.getElementById('interets').textContent = interets > 0 ? interets.toFixed(2) : '-';
+            document.getElementById('total').textContent = totalRembourse > 0 ? totalRembourse.toFixed(2) : '-';
+            document.getElementById('warning').textContent = warning;
+        }
+
+        // Réinitialiser les résultats
+        function resetResults() {
+            document.getElementById('mensualiteResult').textContent = '-';
+            document.getElementById('duree').textContent = '-';
+            document.getElementById('dureeAnneesResult').textContent = '-';
+            document.getElementById('interets').textContent = '-';
+            document.getElementById('total').textContent = '-';
+            document.getElementById('warning').textContent = 'Veuillez remplir soit la durée, soit la mensualité.';
+        }
+
+        // Ajouter des écouteurs d'événements sur les champs pour recalculer en temps réel
+        const inputs = document.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.addEventListener('input', calculerPret);
+        });
+
+        // Calcul initial avec les valeurs par défaut (aucune pour durée/mensualité au départ)
+        calculerPret();
+    </script>
+</body>
+</html>
